@@ -54,6 +54,7 @@ def get_response(sentence):
 
 
 if __name__ == "__main__":
+    print('data :', data)
     print("채팅을 시작해봅시다!( 'quit'을 입력하면 종료됩니다.)")
     while True:
         sentence = input("당신 : ")

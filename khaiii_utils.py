@@ -39,6 +39,15 @@ def pos_tagging(spell_sentence):
     return token_list
 
 
+def tokenize_word(spell_sentence):
+    api = KhaiiiApi()
+    tokenized_sentence = []
+    for word in api.analyze(spell_sentence):
+        for morph in word.morphs:
+            tokenized_sentence.append(morph.lex)
+    return tokenized_sentence
+
+
 def bag_of_words(tokenized_sentence, words):
     sentence_words = [word for word in tokenized_sentence]
     bag = np.zeros(len(words), dtype=np.float32)
