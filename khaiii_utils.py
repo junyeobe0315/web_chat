@@ -55,3 +55,19 @@ def bag_of_words(tokenized_sentence, words):
         if word in sentence_words:
             bag[idx] = 1
     return bag
+
+def get_tag_word():
+    # 태그 단어
+    PAD = "<PADDING>"   # 패딩
+    STA = "<START>"     # 시작
+    END = "<END>"       # 끝
+    OOV = "<OOV>"       # 없는 단어(Out of Vocabulary)
+    return PAD, STA, END, OOV
+
+def get_tag_index():
+    # 태그 인덱스
+    PAD_INDEX = 0
+    STA_INDEX = 1
+    END_INDEX = 2
+    OOV_INDEX = 3
+    return PAD_INDEX, STA_INDEX, END_INDEX, OOV_INDEX
