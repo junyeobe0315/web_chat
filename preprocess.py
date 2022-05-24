@@ -1,7 +1,7 @@
 from khaiii_utils import *
 import json
 from tqdm import tqdm
-from gensim.models.word2vec import Word2Vec
+from gensim.models import Word2Vec
 import numpy as np
 
 def get_chat_data(n):
@@ -46,7 +46,7 @@ def train_word2vec(n, acc=True):
     for sentence in tqdm(a):
         temp = tokenize_word(sentence)
         sentences.append(temp)
-    model = Word2Vec(sentences, window=15)
+    model = Word2Vec(sentences, window=50)
     model.init_sims(replace=True)
     if acc:
         while True:
@@ -63,4 +63,6 @@ def train_word2vec(n, acc=True):
 n = 6000
 
 model = train_word2vec(n)
+print('word2vec embedding vector shape :', model.wv.vectors.shape)
 
+model.save('/mnt/e/Temp/web/model_pth/mymodel_0522')
