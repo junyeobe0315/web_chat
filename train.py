@@ -17,38 +17,6 @@ from model import *
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def word_embedding(word):
-    model = gensim.models.Word2Vec.load('/mnt/e/Temp/web/model_pth/mymodel_0521')
-    print(model.wv[word])
-    return model
-
-def sentence_to_index(sentence):
-    sentence = make_no_space(sentence)
-    sentence = spacing(sentence)
-    sentence = spell_check(sentence)
-    sentence = tokenize_word(sentence)
-    return sentence
-    
-def get_chat_data(n):
-    '''
-    json 파일에서 질문과 답변을 가져옴.
-    q,a 는 리스트 형식으로 저장함.
-    input은 불러올 데이터 수
-    output은 q,a 리스트
-    '''
-    with open('ko_wiki_v1_squad.json', 'r') as f:
-        data = json.load(f)
-    q = []
-    a = []
-    for i in range(n):
-        try:
-            q.append(data["data"][i]["paragraphs"][0]["qas"][0]["question"])
-            a.append(data["data"][i]["paragraphs"][0]["context"])
-        except:
-            pass
-    return q, a
-
-
 
 SOS_token = 0
 EOS_token = 1
@@ -119,18 +87,119 @@ def readChats(n, reverse=False):
 
     return input_data, output_data, pairs
 
-def preprocess()
+def preprocess(n):
+
+    print("reading sntences start")
+    Q, A = get_chat_data(n)
+    pairs = [[Q[i],A[i]] for i in range(n)]
+    
+    source_vocab = Vocab()
+    target_vocab = Vocab()
+
+    for pair in pairs:
+        source_vocab.add_vocab(pair[0])
+        target_vocab.add_vocab(pair[1])
+
+    print("source vocab size =", source_vocab.n_vocab)
+    print("target vocab size =", target_vocab.n_vocab)
+
+    return pairs, source_vocab, target_vocab
+
+def train(pairs, encoder, decoder, n_iter, print_every=1000, learning_rate=0.01):
+    loss_total = 0
+
+    encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
+    decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
 
 
-def prepareData(reverse=False):
-    input_data, output_data, pairs = readChats(reverse)
-    print("number of pairs :", len(pairs))
-    for pair in tqdm(pairs):
-        input_data.addSentence(pair[0])
-        output_data.addSentence(pair[1])
+    criterion = nn.NLLLoss()
 
-    return input_data, output_data, pairs
+    for i in tqdm(range(1, n_iter + 1)):
+        Q = [pairs[i-1][0]]
+        A = [pairs[i-1][1]]
+        print(Q, A)
+        encoder_hidden = torch.zeros([1, 1, encoder.hidden_size]).to(device)
 
-input_data, output_data, pairs = prepareData(False)
-print(random.choice(pairs))
+        encoder_optimizer.zero_grad()
+        decoder_optimizer.zero_grad()
 
+        loss = 0
+
+
+        source_length = 0
+
+
+        for enc_input in range(source_length):
+            _, encoder_hidden = encoder(source_tensor[enc_input], encoder_hidden)
+
+        decoder_input = torch.Tensor([[SOS_token]]).long().to(device)
+        decoder_hidden = encoder_hidden # connect encoder output to decoder input
+
+        for di in range(target_length):
+            decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
+            loss += criterion(decoder_output, target_tensor[di])
+            decoder_input = target_tensor[di]  # teacher forcing
+
+        loss.backward()
+        encoder_optimizer.step()
+        decoder_optimizer.step()
+
+        loss_iter = loss.item() / target_length
+        loss_total += loss_iter
+
+        if i % print_every == 0:
+            loss_avg = loss_total / print_every
+            loss_total = 0
+            print("[{} - {}%] loss = {:05.4f}".format(i, i / n_iter * 100, loss_avg))
+
+def evaluate(pairs, source_vocab, target_vocab, encoder, decoder, target_max_length):
+    for pair in pairs:
+        print(">", pair[0])
+        print("=", pair[1])
+        source_tensor = tensorize(source_vocab, pair[0])
+        source_length = source_tensor.size()[0]
+        encoder_hidden = torch.zeros([1, 1, encoder.hidden_size]).to(device)
+
+        for ei in range(source_length):
+            _, encoder_hidden = encoder(source_tensor[ei], encoder_hidden)
+
+        decoder_input = torch.Tensor([[SOS_token]], device=device).long()
+        decoder_hidden = encoder_hidden
+        decoded_words = []
+
+        for di in range(target_max_length):
+            decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
+            _, top_index = decoder_output.data.topk(1)
+            if top_index.item() == EOS_token:
+                decoded_words.append("<EOS>")
+                break
+            else:
+                decoded_words.append(target_vocab.index2vocab[top_index.item()])
+
+            decoder_input = top_index.squeeze().detach()
+
+        predict_words = decoded_words
+        predict_sentence = " ".join(predict_words)
+        print("<", predict_sentence)
+        print("")
+'''
+SOURCE_MAX_LENGTH = 100
+TARGET_MAX_LENGTH = 10000
+
+load_pairs, load_source_vocab, load_target_vocab = preprocess(6000)
+print(random.choice(load_pairs))
+
+enc_hidden_size = 16
+dec_hidden_size = enc_hidden_size
+
+enc = Encoder(load_source_vocab.n_vocab, enc_hidden_size).to(device)
+dec = Decoder(dec_hidden_size, load_target_vocab.n_vocab).to(device)
+
+train(load_pairs, load_source_vocab, load_target_vocab, enc, dec, 5000, print_every=1000)
+
+evaluate(load_pairs, load_source_vocab, load_target_vocab, enc, dec, TARGET_MAX_LENGTH)
+'''
+
+Q, A = get_chat_data(100)
+Q_input = make_all_data(Q)
+print(Q_input)

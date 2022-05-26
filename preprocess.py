@@ -1,68 +1,44 @@
 from khaiii_utils import *
 import json
 from tqdm import tqdm
+import gensim
 from gensim.models import Word2Vec
 import numpy as np
+from word2vec import get_chat_data
 
-def get_chat_data(n):
-    '''
-    json 파일에서 질문과 답변을 가져옴.
-    q,a 는 리스트 형식으로 저장함.
-    input은 불러올 데이터 수
-    output은 q,a 리스트
-    '''
-    with open('ko_wiki_v1_squad.json', 'r') as f:
-        data = json.load(f)
-    q = []
-    a = []
-    for i in range(n):
-        try:
-            q.append(data["data"][i]["paragraphs"][0]["qas"][0]["question"])
-            a.append(data["data"][i]["paragraphs"][0]["context"])
-        except:
-            pass
-    return q, a
+def word_embedding(word):
+    model = gensim.models.Word2Vec.load('/mnt/e/Temp/web/model_pth/mymodel_0526')
+    print(model.wv[word])
+    return model.wv[word]
 
-def tokenize_word(spell_sentence):
-    '''
-    문장을 토큰화.
-    input 문장 float
-    output 토큰화 된 리스트
-    '''
+
+def tokenize_sentence(sentence):
     api = KhaiiiApi()
     tokenized_sentence = []
-    for word in api.analyze(spell_sentence):
+    for word in api.analyze(sentence):
         for morph in word.morphs:
             tokenized_sentence.append(morph.lex)
+    print(tokenized_sentence)
     return tokenized_sentence
 
-def train_word2vec(n, acc=True):
-    q, a = get_chat_data(n)
-    sentences = list()
-    
-    for sentence in tqdm(q):
-        temp = tokenize_word(sentence)
-        sentences.append(temp)
-    for sentence in tqdm(a):
-        temp = tokenize_word(sentence)
-        sentences.append(temp)
-    model = Word2Vec(sentences, window=50)
-    model.init_sims(replace=True)
-    if acc:
-        while True:
-            word = input("유사단어 찾기(quit to exit) :")
-            if word == "quit":
-                break
-            else:
-                try:
-                    print(model.wv.most_similar(word))
-                except:
-                    print("{} is not in model".format(word))
-    return model
+def make_input_data(tokenized_sentence):
+    input_data = []
+    for word in tokenized_sentence:
+        print(word)
+        input_data.append(word_embedding(word))
+    print(input_data)
+    return input_data
 
-n = 6000
+def make_all_data(Q):
+    input_data = []
+    for sentence in Q:
+        print(sentence)
+        word_lst = tokenize_sentence(sentence)
+        input_data.append(make_input_data(word_lst))
+    return input_data
 
-model = train_word2vec(n)
-print('word2vec embedding vector shape :', model.wv.vectors.shape)
-
-model.save('/mnt/e/Temp/web/model_pth/mymodel_0522')
+Q, A = get_chat_data(3)
+Q_input = make_all_data(Q)
+for data in Q_input:
+    print(data)
+    print("------------------------------------")
